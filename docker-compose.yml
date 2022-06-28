@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: web
     environment:
-      - REDIS_HOST=http://redis
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
       - ./app:/usr/src/app
@@ -21,3 +21,6 @@ services:
     container_name: redis
     ports:
       - 6379:6379
+    volumes:
+      - ./data:/data
+    command: redis-server --appendonly yes
