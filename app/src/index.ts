@@ -24,7 +24,7 @@ const subscribers: Record<string, Redis> = {};
   app.use(bodyParser.json());
 
   // publicフォルダに静的ファイルを格納
-  app.use(express.static("public"));
+  app.use(express.static("src/public"));
 
   // 全てのkeyを取得
   const keys = await redis.keys("*");
@@ -32,48 +32,46 @@ const subscribers: Record<string, Redis> = {};
     await addSubscriber(keys[i]);
   }
 
-  // Redis接続時の処理を登録（接続後、クライアント側からのメッセージ送信を待ち受ける）
+  // Redis接続時の処理を登録
   io.on("connection", (socket: socketio.Socket) => {
-    socket.on("send",  async (key: string, msg: string) => {
-      await redis.zadd(key, moment.now(), msg);
-      await redis.publish(key, msg);
+    // クライアント側からのメッセージ送信を待ち受ける
+    socket.on("send",  async (key: string, id: number, text: string) => {
+      const date = moment.now();
+      const message = JSON.stringify({
+        id: id,
+        text: text,
+        date: date
+      });
+      await redis.zadd(key, date, message);
+      await redis.publish(key, message);
     });
-  });
 
-  // チャンネル作成
-  app.use("/channel/create", async (req, res) => {
-    try {
-      const { key, msg } = req.body;
-      await redis.zadd(key, moment.now(), msg);
+    // クライアント側からのチャットルーム作成を待ち受ける
+    socket.on("create", async (key: string, id: number) => {
+      const date = moment.now();
+      const message = JSON.stringify({
+        id: id,
+        text: `NEW CHANNEL: ${key}`,
+        date: date
+      });
+      await redis.zadd(key, moment.now(), message);
       await addSubscriber(key);
-      await redis.publish(key, msg);
-      res.send("create channel");
-    } catch(err) {
-      res.send(`Error: ${err}`);
-    }
-  });
+      io.emit("created", JSON.parse(message));
+    });
 
-  // チャンネル削除
-  app.use("/channel/delete", (req, res) => {
-    try {
-      const { key } = req.body;
+    // クライアント側からのチャットルーム削除を待ち受ける
+    socket.on("delete", async (key: string) => {
       subscribers[key].disconnect();
       delete subscribers[key];
-      res.send("delete channel");
-    } catch(err) {
-      res.send(`Error: ${err}`);
-    }
-  });
+      io.emit("deleted", key);
+    });
 
-  // 履歴取得
-  app.use("/channel/history", async (req, res) => {
-    try {
-      const { key } = req.body;
-      const result = await redis.zrange(key, -1000, -1);
-      res.send(result);
-    } catch(err) {
-      res.send(`Error: ${err}`);
-    }
+    // クライアント側からのチャット履歴取得を待ち受ける
+    socket.on("get", async (key: string) => {
+      const result = await redis.zrange(key, 0, -1);
+      const messages = result.map((msg) => JSON.parse(msg));
+      io.emit("getted", messages);
+    });
   });
 
   server.listen(3000, () => {
@@ -86,7 +84,7 @@ async function addSubscriber(key: string) {
   const client = new Redis({ host: redis_host, port: redis_port });
   await client.subscribe();
   client.on("message", (_, msg) => {
-    io.emit(key, msg);
+    io.emit(key, JSON.parse(msg));
   });
   subscribers[key] = client;
 }
