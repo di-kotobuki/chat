@@ -1,0 +1,95 @@
+body, p, input {
+    margin: 0;
+}
+
+div, p, input {
+    box-sizing: border-box;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+.wrap {
+    padding: 10px;
+    position: relative;
+}
+
+.side {
+    border-right: 1px solid #000;
+    overflow-y: scroll;
+    width: 200px;
+}
+
+#rooms p {
+    border-bottom: 1px solid #999;
+    cursor: pointer;
+    padding: 10px 5px;
+}
+
+#rooms p.active {
+    font-weight: bold;
+}
+
+.main {
+    width: calc(100% - 200px);
+}
+
+#messages {
+    height: 100%;
+    padding-bottom: 60px;
+}
+
+#messages .box {
+    overflow-y: scroll;
+}
+
+#messages .text {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+#messages .left {
+    justify-content: start;
+}
+
+#messages .right {
+    justify-content: end;
+}
+
+#messages  p {
+    background-color: #ccc;
+    border-radius: 4px;
+    max-width: 500px;
+    padding: 10px;
+}
+
+#messages  span {
+    align-self: end;
+    margin: 0 10px;
+}
+
+.form {
+    bottom: 0px;
+    display: flex;
+    left: 0px;
+    justify-content: space-between;
+    padding: 10px;
+    position: absolute;
+    width: 100%;
+}
+
+.form input {
+    height: 40px;
+    line-height: 40px;
+}
+
+.form input[type=text] {
+    width: calc(100% - 60px);
+}
+
+.form input[type=button] {
+    width: 50px;
+}

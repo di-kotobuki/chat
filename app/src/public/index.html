@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="side wrap">
+            <div id="rooms"></div>
+            <div class="form">
+                <input type="text" id="room_name" placeholder="ROOM NAME">
+                <input type="button" id="create" value="作成">
+            </div>
+        </div>
+        <div class="main wrap">
+            <div id="messages"></div>
+            <div class="form">
+                <input type="text" id="send_text" placeholder="MESSAGE TEXT">
+                <input type="button" id="send" value="送信">
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "socket.io-client": "https://cdn.socket.io/4.4.1/socket.io.esm.min.js",
+                "axios": "https://cdn.skypack.dev/axios"
+            }
+        }
+    </script>
+    <script type="module">
+        import { io } from "socket.io-client";
+        import axios from "axios";
+
+        (() => {
+            const socket = io();
+
+            // 自分のIDをランダムで決める
+            const id = Math.random() > 0.5 ? "A" : "B";
+
+            // 表示中のチャットルーム
+            let activeSide = "";
+            let activeMain = "";
+            let channel = "";
+
+            init();
+
+            async function init() {
+                await getRooms();
+
+                document.getElementById("create").addEventListener("click", async () => {
+                    const el = document.getElementById("room_name");
+                    await createRoom(el.value);
+                    el.value = "";
+                });
+
+                document.getElementById("send").addEventListener("click", async () => {
+                    const el = document.getElementById("send_text");
+                    // サーバ側: socket.on("send", async (key: string, id: number, text: string) => {})
+                    await socket.emit("send", { key: channel, id: id, text: el.value });
+                    el.value = "";
+                })
+            }
+
+            // サイドバーの描画
+            function renderSide(room_name, active = false) {
+                const el = document.createElement("p");
+                el.textContent = room_name;
+                el.classList.add("room");
+                if (active) {
+                    el.classList.add("active");
+                    activeSide = el;
+                }
+                el.addEventListener("click", (e) => {
+                    activeSide.classList.remove("active");
+                    activeMain.hidden = true;
+                    const target = e.target;
+                    const el = document.getElementById(target.textContent);
+                    target.classList.add("active");
+                    el.hidden = false;
+                    activeSide = target;
+                    activeMain = el;
+                    channel = target.textContent;
+                });
+                document.getElementById("rooms").appendChild(el);
+            }
+
+            // メイン部分の描画
+            function renderMain(room, active = false) {
+                const box = document.createElement("div");
+                box.classList.add("box");
+                box.setAttribute("id", room.name);
+                if (active) {
+                    activeMain = box;
+                    channel = room.name;
+                } else {
+                    box.hidden = true;
+                }
+                for (let i = 0; i < room.messages.length; i++) {
+                    const message = room.messages[i];
+                    const text = document.createElement("div");
+                    text.classList.add("text");
+                    const p = document.createElement("p");
+                    p.textContent = message.text;
+                    const span = document.createElement("span");
+                    span.textContent = moment(message.date).format("MM/DD HH:mm");
+                    if (message.id == id) {
+                        text.classList.add("right");
+                        text.appendChild(span);
+                        text.appendChild(p);
+                    } else {
+                        text.classList.add("left");
+                        text.appendChild(p);
+                        text.appendChild(span);
+                    }
+                    box.appendChild(text);
+                }
+                document.getElementById("messages").appendChild(box);
+            }
+
+            // メッセージ受信
+            async function receiveMessage(room_name) {
+                // サーバ側: io.emit(key, JSON.parse(msg));
+                socket.on(room_name, (message) => {
+                    const text = document.createElement("div");
+                    text.classList.add("text");
+                    const p = document.createElement("p");
+                    p.textContent = message.text;
+                    const span = document.createElement("span");
+                    span.textContent = moment(message.date).format("MM/DD HH:mm");
+                    if (message.id == id) {
+                        text.classList.add("right");
+                        text.appendChild(span);
+                        text.appendChild(p);
+                    } else {
+                        text.classList.add("left");
+                        text.appendChild(p);
+                        text.appendChild(span);
+                    }
+                    document.getElementById(room_name).appendChild(text);
+                });
+            }
+
+            // チャットルーム取得
+            async function getRooms() {
+                axios.get("/get")
+                .then((response) => {
+                    const rooms = response.data;
+                    for (let i = 0; i < rooms.length; i++) {
+                        renderSide(rooms[i].name, i == 0);
+                        renderMain(rooms[i], i == 0);
+                        receiveMessage(rooms[i].name);
+                    }
+                    console.log(response);
+                })
+                .catch((error) => {
+                    console.log(error);
+                });
+            }
+
+            // チャットルーム作成
+            async function createRoom(room_name) {
+                axios.post("/create", {
+                    key: room_name,
+                    id: id
+                })
+                .then((response) => {
+                    renderSide(room_name);
+                    renderMain(response.data);
+                    receiveMessage(room_name);
+                    console.log(response);
+                })
+                .catch((error) => {
+                    console.log(error);
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
