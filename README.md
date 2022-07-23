@@ -1,3 +1,12 @@
+### 起動
+```
+docker-compose up -d
+
+# コンテナ内で
+yarn dev
+```
+
+### ディレクトリ構成
 ```
 /
 ├ app
